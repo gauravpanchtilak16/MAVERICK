@@ -88,17 +88,52 @@ export const NASA_DATA_CENTER = {
   mslRadReference: MSL_RAD_LEVEL_2_REFERENCE,
 }
 
-export function validateNasaSnapshots(data = NASA_DATA_CENTER) {
-  const sep = data.spaceWeather
-  const radiation = data.marsRadiation
+function validTimestamp(value: unknown, utc: boolean) {
+  if (typeof value !== 'string') return false
+  const pattern = utc ? /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/ : /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/
+  if (!pattern.test(value)) return false
+  const parsed = new Date(utc ? value : `${value}Z`)
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 19) === value.slice(0, 19)
+}
+
+function hasText(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0
+}
+
+export function validateNasaSnapshots(data: Partial<typeof NASA_DATA_CENTER> = NASA_DATA_CENTER) {
+  const sep = data?.spaceWeather
+  const radiation = data?.marsRadiation
+  const reference = data?.mslRadReference
   return Boolean(
-    sep.recordIdentifier
+    data?.status === 'Offline-ready cached snapshots'
+    && sep?.classification === 'NASA observation'
+    && sep.sourceName === 'NASA DONKI'
+    && sep.sourceUrl === 'https://api.nasa.gov/DONKI/SEP'
+    && typeof sep.recordIdentifier === 'string'
+    && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}-SEP-\d{3}$/.test(sep.recordIdentifier)
+    && validTimestamp(sep.retrievedAtUtc, true)
+    && typeof sep.observationDate === 'string'
+    && validTimestamp(`${sep.observationDate.replace(/Z$/, '')}:00Z`, true)
     && sep.eventType === 'Solar Energetic Particle (SEP)'
-    && sep.sourceUrl.startsWith('https://')
-    && Number.isFinite(radiation.measurementValue)
+    && Array.isArray(sep.instruments) && sep.instruments.length > 0 && sep.instruments.every(hasText)
+    && Array.isArray(sep.sourceReferences) && sep.sourceReferences.length > 0
+    && sep.sourceReferences.every((url: unknown) => hasText(url) && url.startsWith('https://ccmc.gsfc.nasa.gov/DONKI/'))
+    && hasText(sep.originalUnit) && hasText(sep.description) && hasText(sep.gameUse) && hasText(sep.limitations)
+    && radiation?.classification === 'NASA observation'
+    && radiation.sourceName === 'NASA OSDR RadLab'
+    && typeof radiation.sourceUrl === 'string' && radiation.sourceUrl.startsWith('https://visualization.osdr.nasa.gov/radlab/api/')
+    && validTimestamp(radiation.retrievedAtUtc, true)
+    && validTimestamp(radiation.observationDate, false)
+    && radiation.instrumentId === 'MSL-RAD-Surface'
     && radiation.trajectory === 'Mars surface'
+    && radiation.measurementField === 'absorbed_dose_rate'
+    && Number.isFinite(radiation.measurementValue) && radiation.measurementValue >= 0
     && radiation.originalUnit === 'µGy/hour'
     && radiation.doseEquivalentRate === null
-    && data.status === 'Offline-ready cached snapshots',
+    && hasText(radiation.qualityStatus) && hasText(radiation.gameUse) && hasText(radiation.limitations)
+    && reference?.classification === 'NASA dataset reference'
+    && typeof reference.sourceUrl === 'string' && reference.sourceUrl.startsWith('https://data.nasa.gov/dataset/')
+    && validTimestamp(reference.retrievedAtUtc, true)
+    && hasText(reference.originalUnit) && hasText(reference.gameUse) && hasText(reference.limitations),
   )
 }

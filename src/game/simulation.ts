@@ -144,6 +144,7 @@ export function checkMissionStatus(state: MissionState): MissionState {
     && state.food.storedFoodCrewDays > 0
   const failed = state.lifeSupport.oxygenGameUnits <= 0
     || state.lifeSupport.waterGameUnits <= 0
+    || state.food.storedFoodCrewDays <= 0
     || state.crew.conditionIndex <= 0
     || (state.power.storedEnergyKwh <= 0 && state.power.solarGenerationKw * state.power.dustStormMultiplier < state.power.loads.lifeSupportKw)
     // A sol is the mission deadline. If the crew reaches it without meeting
@@ -188,6 +189,10 @@ export function advanceSimulation(state: MissionState, elapsedHours: number): Mi
 }
 
 export function applyPlayerDecision(state: MissionState, action: PlayerAction): MissionState {
+  if (typeof action !== 'object' || action === null || typeof action.id !== 'string' || !action.id.trim()) return state
+  if ((action.type === 'toggleGreenhouseLighting' || action.type === 'toggleGreenhouseWaterConservation') && typeof action.enabled !== 'boolean') return state
+  if (action.type === 'toggleShelter' && typeof action.sheltered !== 'boolean') return state
+  if (action.type === 'sendMessage' && (typeof action.text !== 'string' || !action.text.trim())) return state
   if (state.mission.status !== 'active' || state.mission.processedActionIds.includes(action.id)) return state
   if (action.type === 'advanceTime') {
     if (!Number.isFinite(action.hours) || action.hours <= 0 || action.hours > 24) return state
@@ -229,6 +234,8 @@ export function applyPlayerDecision(state: MissionState, action: PlayerAction): 
       next = { ...next, communications: { ...next.communications, pendingOutgoing: [...next.communications.pendingOutgoing, outgoing], pendingIncoming: [...next.communications.pendingIncoming, reply], nextMessageNumber: number + 1 } }
       return addEvent(next, 'Message sent to Earth', `The fictional message has an ${next.communications.oneWayDelayMinutes}-minute one-way delay. The crew must act autonomously while awaiting a reply.`)
     }
+    default:
+      return state
   }
 }
 

@@ -143,6 +143,78 @@ describe('RED HORIZON deterministic simulation engine', () => {
     expect(checkMissionStatus(missedDeadline).mission.status).toBe('failed')
   })
 
+  it('ends an active mission when stored food is exhausted', () => {
+    const starving = createInitialMission()
+    starving.food.storedFoodCrewDays = 0
+    expect(checkMissionStatus(starving).mission.status).toBe('failed')
+  })
+
+  it('keeps extreme resource states bounded and terminal after depletion', () => {
+    const depleted = createInitialMission()
+    depleted.power.storedEnergyKwh = 0
+    depleted.power.solarGenerationKw = 0
+    depleted.lifeSupport.waterRecoveryCondition = 0
+    depleted.lifeSupport.oxygenGameUnits = 1
+    depleted.lifeSupport.waterGameUnits = 1
+    depleted.food.storedFoodCrewDays = 0.1
+    const result = advanceSimulation(depleted, 2)
+    for (const value of [result.power.storedEnergyKwh, result.lifeSupport.oxygenGameUnits, result.lifeSupport.waterGameUnits, result.food.storedFoodCrewDays, result.radiation.hazardIndex, result.crew.conditionIndex]) {
+      expect(Number.isFinite(value)).toBe(true)
+      expect(value).toBeGreaterThanOrEqual(0)
+    }
+    expect(result.power.storedEnergyKwh).toBeLessThanOrEqual(result.power.batteryCapacityKwh)
+    expect(result.mission.status).toBe('failed')
+    expect(advanceSimulation(result, 2)).toBe(result)
+  })
+
+  it('fails predictably at zero water and zero solar generation', () => {
+    const noWater = createInitialMission()
+    noWater.lifeSupport.waterGameUnits = 0
+    expect(checkMissionStatus(noWater).mission.status).toBe('failed')
+
+    const noSolar = createInitialMission()
+    noSolar.power.solarGenerationKw = 0
+    noSolar.power.storedEnergyKwh = 0
+    const result = advanceSimulation(noSolar, 2)
+    expect(result.power.storedEnergyKwh).toBe(0)
+    expect(result.mission.status).toBe('failed')
+  })
+
+  it('keeps low oxygen finite and treats zero as terminal', () => {
+    const low = createInitialMission()
+    low.lifeSupport.oxygenGameUnits = 24
+    const next = advanceSimulation(low, 2)
+    expect(next.lifeSupport.oxygenGameUnits).toBe(22)
+    expect(next.mission.status).toBe('active')
+    low.lifeSupport.oxygenGameUnits = 1
+    const empty = advanceSimulation(low, 2)
+    expect(empty.lifeSupport.oxygenGameUnits).toBe(0)
+    expect(empty.mission.status).toBe('failed')
+  })
+
+  it('does not recover water from a failed recycler or grow crops with lights off', () => {
+    const failedRecycler = createInitialMission()
+    failedRecycler.lifeSupport.waterRecoveryCondition = 0
+    const noRecovery = advanceSimulation(failedRecycler, 12)
+    expect(noRecovery.lifeSupport.waterGameUnits).toBeLessThan(failedRecycler.lifeSupport.waterGameUnits)
+
+    const lightsOff = applyPlayerDecision(createInitialMission(), { id: 'lights-off', type: 'toggleGreenhouseLighting', enabled: false })
+    const delayed = advanceSimulation(lightsOff, 12)
+    expect(delayed.food.cropGrowthProgress).toBe(lightsOff.food.cropGrowthProgress)
+    expect(delayed.food.cropHarvests).toBe(0)
+  })
+
+  it('delivers each Earth reply once after both signal legs', () => {
+    const sent = applyPlayerDecision(createInitialMission(), { id: 'message', type: 'sendMessage', text: 'Status?' })
+    const before = advanceSimulation(sent, 0.4)
+    expect(before.communications.deliveredMessages).toHaveLength(0)
+    const after = advanceSimulation(before, 0.3)
+    const later = advanceSimulation(after, 0.3)
+    expect(after.communications.deliveredMessages).toHaveLength(1)
+    expect(later.communications.deliveredMessages).toHaveLength(1)
+    expect(later.mission.eventHistory.filter((entry) => entry.title === 'Earth reply arrived')).toHaveLength(1)
+  })
+
   it('resets and replays an identical starting mission', () => {
     const changed = advanceSimulation(createInitialMission(), 2)
     const replay = resetMission()
@@ -158,5 +230,21 @@ describe('RED HORIZON deterministic simulation engine', () => {
     expect(applyPlayerDecision(first, { id: 'invalid-hours', type: 'advanceTime', hours: Number.POSITIVE_INFINITY })).toEqual(first)
     expect(applyPlayerDecision(first, { id: 'extreme-hours', type: 'advanceTime', hours: 25 })).toEqual(first)
     expect(advanceSimulation(createInitialMission(), 2)).toEqual(advanceSimulation(createInitialMission(), 2))
+  })
+
+  it('keeps mission state unchanged for missing or malformed decisions', () => {
+    const initial = createInitialMission()
+    const invalid = [
+      undefined,
+      null,
+      { id: 'unknown', type: 'unknown' },
+      { id: 'missing-time', type: 'advanceTime' },
+      { id: 'missing-message', type: 'sendMessage' },
+      { id: 'missing-light-flag', type: 'toggleGreenhouseLighting' },
+      { id: 'missing-shelter-flag', type: 'toggleShelter' },
+    ]
+    for (const action of invalid) {
+      expect(applyPlayerDecision(initial, action as unknown as Parameters<typeof applyPlayerDecision>[1])).toBe(initial)
+    }
   })
 })

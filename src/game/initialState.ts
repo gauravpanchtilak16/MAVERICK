@@ -1,7 +1,8 @@
 import type { MissionState } from './types'
-import { DONKI_SEP_SNAPSHOT } from '../data/nasaSnapshots'
+import { DONKI_SEP_SNAPSHOT, validateNasaSnapshots } from '../data/nasaSnapshots'
 
 export function createInitialMission(): MissionState {
+  const nasaSnapshotValid = validateNasaSnapshots()
   return {
     time: { elapsedHours: 0, sol: 214, missionDay: 1, solHours: 6 },
     crew: { count: 4, conditionIndex: 88, fatigueIndex: 24, restHours: 0, workloadIndex: 20 },
@@ -41,10 +42,10 @@ export function createInitialMission(): MissionState {
       shieldingAllocated: false,
       spaceWeatherWarning: true,
       scenarioReference: {
-        sourceName: DONKI_SEP_SNAPSHOT.sourceName,
-        recordIdentifier: DONKI_SEP_SNAPSHOT.recordIdentifier,
-        use: DONKI_SEP_SNAPSHOT.gameUse,
-        limitation: DONKI_SEP_SNAPSHOT.limitations,
+        sourceName: nasaSnapshotValid ? DONKI_SEP_SNAPSHOT.sourceName : 'Simulation data only',
+        recordIdentifier: nasaSnapshotValid ? DONKI_SEP_SNAPSHOT.recordIdentifier : null,
+        use: nasaSnapshotValid ? DONKI_SEP_SNAPSHOT.gameUse : 'Fictional space-weather warning for the game.',
+        limitation: nasaSnapshotValid ? DONKI_SEP_SNAPSHOT.limitations : 'No validated NASA observation is used.',
       },
     },
     communications: { oneWayDelayMinutes: 18, pendingOutgoing: [], pendingIncoming: [], deliveredMessages: [], nextMessageNumber: 1 },
@@ -56,7 +57,7 @@ export function createInitialMission(): MissionState {
       eventHistory: [
         { id: 'event-1', atHours: 0, title: 'Sol 214 mission started', detail: 'This fictional mission uses educational game units and simulation indices, not live NASA measurements.' },
         { id: 'event-2', atHours: 0, title: 'Dust storm and water-recovery fault', detail: 'Solar generation is reduced and the water-recovery system needs attention.' },
-        { id: 'event-3', atHours: 0, title: 'Space-weather warning', detail: `Historical NASA DONKI SEP record ${DONKI_SEP_SNAPSHOT.recordIdentifier} informs this educational scenario. Radiation hazard remains a simulation index, not a radiation-dose measurement.` },
+        { id: 'event-3', atHours: 0, title: 'Space-weather warning', detail: nasaSnapshotValid ? `Historical NASA DONKI SEP record ${DONKI_SEP_SNAPSHOT.recordIdentifier} informs this educational scenario. Radiation hazard remains a simulation index, not a radiation-dose measurement.` : 'This is a fictional warning with a simulation radiation-risk index; no validated NASA observation is displayed.' },
       ],
     },
   }

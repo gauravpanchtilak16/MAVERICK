@@ -23,4 +23,24 @@ describe('NASA cached snapshot provenance', () => {
     expect(NASA_DATA_CENTER.freshness).toMatch(/not live/i)
     expect(validateNasaSnapshots()).toBe(true)
   })
+
+  it('rejects empty, malformed, missing-field, invalid-time, and invalid-unit snapshots', () => {
+    expect(validateNasaSnapshots({})).toBe(false)
+    const base = NASA_DATA_CENTER
+    expect(validateNasaSnapshots({ ...base, spaceWeather: { ...base.spaceWeather, retrievedAtUtc: 'not-a-time' } })).toBe(false)
+    expect(validateNasaSnapshots({ ...base, marsRadiation: { ...base.marsRadiation, observationDate: '2019-02-30T00:21:47' } })).toBe(false)
+    expect(validateNasaSnapshots({ ...base, marsRadiation: { ...base.marsRadiation, originalUnit: 'µSv/hour' } })).toBe(false)
+    expect(validateNasaSnapshots({ ...base, marsRadiation: { ...base.marsRadiation, measurementField: 'dose_equivalent_rate' as 'absorbed_dose_rate' } })).toBe(false)
+    expect(validateNasaSnapshots({ ...base, marsRadiation: { ...base.marsRadiation, sourceUrl: undefined as unknown as string } })).toBe(false)
+    expect(validateNasaSnapshots({ ...base, spaceWeather: undefined })).toBe(false)
+    expect(validateNasaSnapshots({ ...base, spaceWeather: { ...base.spaceWeather, sourceReferences: [42] as unknown as string[] } })).toBe(false)
+    expect(validateNasaSnapshots({ ...base, spaceWeather: { ...base.spaceWeather, originalUnit: undefined as unknown as string } })).toBe(false)
+    expect(validateNasaSnapshots({ ...base, spaceWeather: { ...base.spaceWeather, description: undefined as unknown as string } })).toBe(false)
+  })
+
+  it('allows an old valid historical snapshot while retaining its cached status', () => {
+    const old = { ...NASA_DATA_CENTER, spaceWeather: { ...DONKI_SEP_SNAPSHOT, retrievedAtUtc: '2020-01-01T00:00:00Z' } }
+    expect(validateNasaSnapshots(old)).toBe(true)
+    expect(old.status).toBe('Offline-ready cached snapshots')
+  })
 })
