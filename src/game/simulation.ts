@@ -8,6 +8,9 @@ const GAME_BALANCE = {
   cropGrowthPerHour: 1.5,
   cropHarvestCrewDays: 8,
   repairDurationHours: 4,
+  // Illustrative gameplay rates, not measured spacecraft electrolysis efficiency.
+  oxygenGenerationPerHour: 1.5,
+  electrolysisWaterPerHour: 0.5,
 } as const
 
 function clamp(value: number, minimum = 0, maximum = 100) {
@@ -40,14 +43,44 @@ export function updatePower(state: MissionState, elapsedHours: number) {
   const generationKw = state.power.solarGenerationKw * state.power.dustStormMultiplier
   const repairingWaterRecovery = state.lifeSupport.repairHoursRemaining > 0 && !state.radiation.sheltered
   const consumptionKw = getPowerConsumptionKw(state.power, repairingWaterRecovery)
+  const oxygenGeneration = planOxygenGeneration(state, elapsedHours)
   // kWh changes by net kW multiplied by elapsed hours; storage is always physically bounded.
   const storedEnergyKwh = clamp(
-    state.power.storedEnergyKwh + (generationKw - consumptionKw) * elapsedHours,
+    state.power.storedEnergyKwh + (generationKw - consumptionKw) * elapsedHours - oxygenGeneration.energyUsedKwh,
     0,
     state.power.batteryCapacityKwh,
   )
   const criticalShortfall = storedEnergyKwh === 0 && generationKw < state.power.loads.lifeSupportKw
-  return { ...state.power, storedEnergyKwh, generationKw, consumptionKw, criticalShortfall }
+  return { ...state.power, storedEnergyKwh, generationKw, consumptionKw: consumptionKw + (elapsedHours > 0 ? oxygenGeneration.energyUsedKwh / elapsedHours : 0), criticalShortfall }
+}
+
+export function planOxygenGeneration(state: MissionState, elapsedHours: number) {
+  const idle = { oxygenProduced: 0, waterUsed: 0, energyUsedKwh: 0, status: 'Off' }
+  if (!state.lifeSupport.oxygenGenerationEnabled || !Number.isFinite(elapsedHours) || elapsedHours <= 0) return idle
+  if (state.lifeSupport.oxygenGameUnits >= 100) return { ...idle, status: 'Oxygen storage full' }
+  const repairing = state.lifeSupport.repairHoursRemaining > 0 && !state.radiation.sheltered
+  const baseLoadKw = getPowerConsumptionKw(state.power, repairing)
+  const generationKw = state.power.solarGenerationKw * state.power.dustStormMultiplier
+  // Reserve water for crew and crops and power for existing loads before electrolysis.
+  // Newly recovered water becomes available to the generator on the following turn.
+  const cropWaterPerHour = state.food.greenhouseLightingEnabled
+    ? state.food.greenhouseWaterUnitsPerHour * (state.food.waterConservationMode ? 0.5 : 1) : 0
+  const availableWater = Math.max(0, state.lifeSupport.waterGameUnits
+    - (state.crew.count * GAME_BALANCE.waterUsePerCrewHour + cropWaterPerHour) * elapsedHours)
+  const availableEnergy = Math.max(0, state.power.storedEnergyKwh + (generationKw - baseLoadKw) * elapsedHours)
+  if (availableWater <= 0) return { ...idle, status: 'Waiting for water' }
+  if (availableEnergy <= 0 || state.power.loads.oxygenGenerationKw <= 0) return { ...idle, status: 'Waiting for power' }
+  const oxygenAfterCrewUse = Math.max(0, state.lifeSupport.oxygenGameUnits - state.crew.count * GAME_BALANCE.oxygenUsePerCrewHour * elapsedHours)
+  const operatingHours = Math.min(elapsedHours,
+    availableWater / GAME_BALANCE.electrolysisWaterPerHour,
+    availableEnergy / state.power.loads.oxygenGenerationKw,
+    (100 - oxygenAfterCrewUse) / GAME_BALANCE.oxygenGenerationPerHour)
+  return {
+    oxygenProduced: operatingHours * GAME_BALANCE.oxygenGenerationPerHour,
+    waterUsed: operatingHours * GAME_BALANCE.electrolysisWaterPerHour,
+    energyUsedKwh: operatingHours * state.power.loads.oxygenGenerationKw,
+    status: operatingHours < elapsedHours ? 'Limited by available supplies' : 'Ready to make oxygen',
+  }
 }
 
 export function updateLifeSupport(state: MissionState, elapsedHours: number, criticalShortfall: boolean) {
@@ -64,20 +97,22 @@ export function updateLifeSupport(state: MissionState, elapsedHours: number, cri
     : 0
   const waterUsed = (crew.count * GAME_BALANCE.waterUsePerCrewHour + greenhouseWaterUse) * elapsedHours
   const oxygenUsed = crew.count * GAME_BALANCE.oxygenUsePerCrewHour * elapsedHours
+  const oxygenGeneration = planOxygenGeneration(state, elapsedHours)
   // A sheltered crew stays safe, but cannot perform the externalized repair work.
   const repairHoursRemaining = Math.max(0, lifeSupport.repairHoursRemaining - (state.radiation.sheltered ? 0 : elapsedHours))
   const repairCompleted = lifeSupport.repairHoursRemaining > 0 && repairHoursRemaining === 0
   const recoveryCondition = repairCompleted ? 88 : lifeSupport.waterRecoveryCondition
-  const waterGameUnits = clamp(lifeSupport.waterGameUnits + waterRecovery - waterUsed)
-  const oxygenGameUnits = clamp(lifeSupport.oxygenGameUnits - oxygenUsed)
+  const waterGameUnits = clamp(lifeSupport.waterGameUnits + waterRecovery - waterUsed - oxygenGeneration.waterUsed)
+  const oxygenGameUnits = clamp(lifeSupport.oxygenGameUnits - oxygenUsed + oxygenGeneration.oxygenProduced)
   const co2ConditionIndex = clamp(lifeSupport.co2ConditionIndex - elapsedHours * (criticalShortfall ? 7 : 1.2))
-  const healthPenalty = (waterGameUnits < 15 ? 7 : 0) + (oxygenGameUnits < 15 ? 8 : 0) + (criticalShortfall ? 10 : 0)
+  const healthPenalty = (waterGameUnits < 15 ? 7 : 0) + (oxygenGameUnits < 15 ? 8 : 0) + (co2ConditionIndex < 15 ? 6 : 0) + (criticalShortfall ? 10 : 0)
   const systemHealthIndex = clamp(lifeSupport.systemHealthIndex - healthPenalty + (repairCompleted ? 10 : 0))
   return {
     ...lifeSupport,
     waterRecoveryCondition: recoveryCondition,
     waterGameUnits,
     oxygenGameUnits,
+    oxygenGeneratedLastStep: oxygenGeneration.oxygenProduced,
     co2ConditionIndex,
     systemHealthIndex,
     repairHoursRemaining,
@@ -143,6 +178,7 @@ export function checkMissionStatus(state: MissionState): MissionState {
     && state.crew.conditionIndex >= 45
     && state.food.storedFoodCrewDays > 0
   const failed = state.lifeSupport.oxygenGameUnits <= 0
+    || state.lifeSupport.co2ConditionIndex <= 0
     || state.lifeSupport.waterGameUnits <= 0
     || state.food.storedFoodCrewDays <= 0
     || state.crew.conditionIndex <= 0
@@ -179,6 +215,13 @@ export function advanceSimulation(state: MissionState, elapsedHours: number): Mi
   const deliveredReplies = communications.deliveredMessages.slice(state.communications.deliveredMessages.length)
   next = { ...next, communications }
   next = addEvent(next, 'Simulation time advanced', `${elapsedHours} simplified simulation hour${elapsedHours === 1 ? '' : 's'} passed. Power, life support, food, crew, radiation, and messages were updated.`)
+  if (state.lifeSupport.oxygenGenerationEnabled) {
+    const production = planOxygenGeneration(state, elapsedHours)
+    next = addEvent(next, production.oxygenProduced > 0 ? 'Oxygen made from water' : 'Oxygen maker paused',
+      production.oxygenProduced > 0
+        ? `Electrolysis made ${production.oxygenProduced.toFixed(1)} oxygen game units, using ${production.waterUsed.toFixed(1)} water game units and ${production.energyUsedKwh.toFixed(2)} kWh. Crew oxygen use was also deducted. These are game settings, not spacecraft performance data.`
+        : `${production.status}. No extra water or electricity was used by the oxygen maker; crew supplies still change with time.`)
+  }
   for (const reply of deliveredReplies) {
     next = addEvent(next, 'Earth reply arrived', `Delayed message received: “${reply.text}” The crew still had to make safe choices before it arrived.`)
   }
@@ -190,7 +233,7 @@ export function advanceSimulation(state: MissionState, elapsedHours: number): Mi
 
 export function applyPlayerDecision(state: MissionState, action: PlayerAction): MissionState {
   if (typeof action !== 'object' || action === null || typeof action.id !== 'string' || !action.id.trim()) return state
-  if ((action.type === 'toggleGreenhouseLighting' || action.type === 'toggleGreenhouseWaterConservation') && typeof action.enabled !== 'boolean') return state
+  if ((action.type === 'toggleGreenhouseLighting' || action.type === 'toggleGreenhouseWaterConservation' || action.type === 'toggleOxygenGeneration') && typeof action.enabled !== 'boolean') return state
   if (action.type === 'toggleShelter' && typeof action.sheltered !== 'boolean') return state
   if (action.type === 'sendMessage' && (typeof action.text !== 'string' || !action.text.trim())) return state
   if (state.mission.status !== 'active' || state.mission.processedActionIds.includes(action.id)) return state
@@ -201,6 +244,12 @@ export function applyPlayerDecision(state: MissionState, action: PlayerAction): 
 
   let next = markActionProcessed(state, action.id)
   switch (action.type) {
+    case 'toggleOxygenGeneration':
+      if (next.lifeSupport.oxygenGenerationEnabled === action.enabled) return state
+      next = { ...next, lifeSupport: { ...next.lifeSupport, oxygenGenerationEnabled: action.enabled } }
+      return addEvent(next, action.enabled ? 'Oxygen maker enabled' : 'Oxygen maker switched off', action.enabled
+        ? 'Advance mission time to split water using electricity. Oxygen production competes with water reserves and other power loads; it pauses without supplies.'
+        : 'Oxygen production is off. The crew continues using the stored oxygen supply as time passes.')
     case 'reduceNonCriticalLoads':
       if (next.power.nonCriticalLoadsReduced) return state
       next = { ...next, power: { ...next.power, nonCriticalLoadsReduced: true, greenhouseLightingEnabled: false }, food: { ...next.food, greenhouseLightingEnabled: false } }

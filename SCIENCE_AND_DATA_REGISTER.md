@@ -71,6 +71,8 @@ Do not describe a conventional atmosphere-driven dust storm as a lunar weather e
 - Supports: water recovery, air revitalization, carbon dioxide removal and oxygen generation by electrolysis.
 - NASA's reference states the ISS Water Recovery System can recover and recycle about 90% of water on station. Treat this as ISS performance, not a guaranteed Mars-habitat figure.
 - Simplified chemistry: `2 H2O → 2 H2 + O2`.
+- Implemented oxygen generation is controlled from the dashboard and advances only with mission time. Maximum rates of 1.5 oxygen game units/hour, 0.5 water game units/hour, and 0.6 kW are explicitly fictional balance settings, not NASA engineering values or mass ratios. Generation reserves water for crew/crops and energy for existing loads, then scales down to available supplies and oxygen capacity. Water recovered during a turn is available to the generator on the following turn. At full oxygen storage at turn start, the generator pauses. Water recovery remains a separate process. Hydrogen storage, thermal management, and detailed gas chemistry are not modeled.
+- Cabin-air game index below 15 causes a life-support penalty; zero ends the mission. These are game thresholds, not clinical CO₂ concentrations or safety limits.
 
 ### NASA Veggie / Advanced Plant Habitat
 - NASA reference: https://www.nasa.gov/exploration-research-and-technology/growing-plants-in-space/

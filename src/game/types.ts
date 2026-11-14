@@ -29,6 +29,7 @@ export interface PowerState {
     greenhouseLightingKw: number
     nonCriticalKw: number
     repairKw: number
+    oxygenGenerationKw: number
   }
   greenhouseLightingEnabled: boolean
   nonCriticalLoadsReduced: boolean
@@ -36,6 +37,8 @@ export interface PowerState {
 
 export interface LifeSupportState {
   oxygenGameUnits: number
+  oxygenGenerationEnabled: boolean
+  oxygenGeneratedLastStep: number
   waterGameUnits: number
   waterRecoveryCondition: number
   co2ConditionIndex: number
@@ -113,6 +116,7 @@ export type PlayerAction =
   | { id: string; type: 'advanceTime'; hours: number }
   | { id: string; type: 'reduceNonCriticalLoads' }
   | { id: string; type: 'toggleGreenhouseLighting'; enabled: boolean }
+  | { id: string; type: 'toggleOxygenGeneration'; enabled: boolean }
   | { id: string; type: 'toggleGreenhouseWaterConservation'; enabled: boolean }
   | { id: string; type: 'startWaterRecoveryRepair' }
   | { id: string; type: 'useStoredWater' }

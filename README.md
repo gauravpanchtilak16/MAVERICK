@@ -27,7 +27,9 @@ The names, institution, and usernames were supplied by the team. Git history sup
 
 **Sol 214: Outpost Survival** starts with a Martian dust storm, a water-recovery fault, and a fictional radiation warning informed by a *historical* NASA space-weather event. The six screens are mission intro, briefing, dashboard, decision panel, consequence log, and debrief. Players can reduce electrical loads, change greenhouse lighting and water use, repair or draw on water reserves, shelter or allocate shielding, and ask Earth for advice. Advancing time applies resource use, delayed crop growth, repair progress, crew effects, and queued messages to one mission state. The mission can succeed or fail and can be replayed from its starting state.
 
-The five connected game systems are **power** (solar generation, loads, battery), **life support** (oxygen inventory, water recovery, cabin-air condition), **food** (stored food and time-dependent crops), **radiation risk** (unitless game indices and shielding choices), and **communications** (one-way signal delay and a later reply). The current model consumes a starting oxygen supply; it does **not** simulate oxygen generation. All resource thresholds and outpost rates are game assumptions, not NASA measurements. The solar model uses a fixed game rate and omits day and night.
+The five connected game systems are **power** (solar generation, loads, battery), **life support** (oxygen inventory and generation, water recovery, cabin-air condition), **food** (stored food and time-dependent crops), **radiation risk** (unitless game indices and shielding choices), and **communications** (one-way signal delay and a later reply). From the dashboard, players can switch an oxygen maker on or off. It makes oxygen over elapsed mission time using water and electricity; crew oxygen consumption continues. All resource thresholds and outpost rates are game assumptions, not NASA measurements. The solar model uses a fixed game rate and omits day and night.
+
+The oxygen maker illustrates **water electrolysis**: electrical energy splits water into hydrogen and oxygen (`2 H₂O → 2 H₂ + O₂`). It is separate from water recovery. Its maximum rates are **1.5 oxygen game units/hour**, **0.5 water game units/hour**, and **0.6 kW** while running. These are gameplay settings, not measured spacecraft efficiency or physical mass ratios. The model reserves water for crew/crops and energy for existing loads first, limits production to available water, electricity, and oxygen capacity, and pauses when supplies are unavailable or oxygen storage starts a turn full. Newly recovered water becomes available to the generator on the following turn. The mission log records production and costs. Poor cabin-air condition reduces life-support health; a zero cabin-air game index ends the mission.
 
 Turns advance by **two simplified mission hours**. A Martian sol is modeled as **24 hours, 39 minutes, 35 seconds**; the two-hour turn size means the one-sol objective is evaluated at the first turn beyond that duration (26 elapsed hours). The dashboard tracks the sol number and time within the sol separately from elapsed mission time. The scenario's **18-minute one-way** Earth–Mars delay is a game assumption; messages remain available, so delay is not a blackout.
 
@@ -46,7 +48,7 @@ flowchart TD
     Validator -->|event reference only at initialization| Initial
 ```
 
-The NASA observations do **not** supply the radiation-risk index or a fictional habitat dose. There is no runtime NASA API request: validated snapshots bundled with the app allow offline play and are labeled as historical cached data. There is no private API key in the client and no account or environment variable is required to run it.
+The NASA observations do **not** supply the radiation-risk index or a fictional habitat dose. There is no runtime NASA API request: the app checks the structure of its bundled snapshots, allows offline play, and labels the records as historical cached data. That structural check does not independently authenticate a NASA observation. There is no private API key in the client and no account or environment variable is required to run it.
 
 ### Technology stack
 
@@ -62,7 +64,7 @@ The NASA observations do **not** supply the radiation-risk index or a fictional 
 
 ### NASA data and scientific limits
 
-The dates and fields below are the provenance stored in the repository's cached snapshots. The direct DONKI and RadLab record endpoints could not be re-fetched during this README review; the app does not present this review as a fresh observation.
+The dates and fields below are the original provenance stored in the repository's cached snapshots. During repository recovery on 15 November 2026 IST, the RadLab endpoint returned the same timestamp, instrument, Mars-surface trajectory, value, and null dose-equivalent field. A DONKI recheck returned HTTP 429; its historical cache was retained without changing its original retrieval timestamp. Verification does not make either record a current observation.
 
 | Classification and source | Stored observation / retrieval | Original field and unit | Use and limit |
 |---|---|---|---|
@@ -80,7 +82,7 @@ The dates and fields below are the provenance stored in the repository's cached 
 - **Demo video:** Not available / not verified.
 - **Local demo:** follow the installation steps below and open the URL Vite prints.
 
-These are actual captures of the locally built application in headless Chromium; they are not generated illustrations. The debrief image shows one successful playthrough.
+These are actual captures of the locally built application in headless Chromium; they are not generated illustrations. The dashboard capture shows oxygen production after a time advance. The debrief image shows one successful playthrough.
 
 | Screen | Screenshot |
 |---|---|
@@ -116,12 +118,12 @@ npm run preview
 
 ## 6. AI Usage Disclosure
 
-**OpenAI Codex in the ChatGPT desktop app was used during RED HORIZON development.** The disclosure below covers assistance visible in this project work. **TODO — team to confirm whether any additional AI tools were used outside this Codex work and add them here before submission.** Do not attribute other tools without evidence.
+**OpenAI Codex in the ChatGPT desktop app was used during RED HORIZON development.** The disclosure below covers assistance visible in this project work. A separate ChatGPT workflow is not evidenced here. **TODO — team to confirm whether separate ChatGPT sessions or any other AI tools were used and add them here before submission.** Do not attribute other tools without evidence.
 
 | AI tool | Exact files, sections, or assets assisted | Nature of assistance | Human engineering, review, integration, and testing |
 |---|---|---|---|
 | OpenAI Codex (ChatGPT desktop app) | `src/App.tsx`, `src/styles.css`, `src/game/types.ts`, `src/game/initialState.ts`, `src/game/simulation.ts`, `src/data/nasaSnapshots.ts`, `src/game/__tests__/simulation.test.ts`, `src/data/__tests__/nasaSnapshots.test.ts`, `src/data/__tests__/nasaFallback.test.ts`, this `README.md`, and the six browser captures under `docs/screenshots/`. | Assisted with application scaffold and mission logic, NASA source investigation and provenance labels, UI language and styling, debugging and QA, test code, documentation, and automated browser captures. The screenshots record the rendered app; they are not AI-generated art. | The supplied team members own the project and all Git operations. Codex ran automated tests, builds, and a local headless browser check; those do **not** prove human review. **TODO — Ashwin and Gaurav: record your actual engineering contributions, manual review, integration, and tests, with the files or features each of you handled.** |
 
-**AI-generated visual/audio/video assets:** None are included. The six images above are screenshots of the running application. **AI-assisted copy and design:** mission text, scientific labels, CSS/UI decisions, and README wording were assisted by Codex; they require human review before submission.
+**AI-assisted assets:** `public/favicon.svg` is a simple RH monogram written as SVG code with Codex assistance; `index.html` links it. The six PNG images above are browser screenshots of the running application. No AI-generated raster illustration, audio, or video is included. **AI-assisted copy and design:** mission text, scientific labels, CSS/UI decisions, and README wording were assisted by Codex; they require human review before submission.
 
-**Commit authorship:** AI tools are not Git authors or contributors. Human team members perform any commits and pushes through their own accounts. This README work did not create a commit or push.
+**Recovery assistance:** On 15 November 2026, the team explicitly authorized Codex to restore the displaced repository files, implement and test oxygen generation, connect cabin-air depletion to survival, refresh browser captures, and run commit/push commands using the existing configured human Git identity. This authorization superseded the earlier instruction that humans execute every Git command. It does not establish organizer approval of that workflow or prove human review of AI output. The recovery changes include `src/game/__tests__/oxygenGeneration.test.ts`, `.gitignore`, the game/UI files listed above, scientific documentation, and the favicon. AI authors and AI co-author trailers must not be added; the team must confirm its actual review and handbook compliance before submission.
