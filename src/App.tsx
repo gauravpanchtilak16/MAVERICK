@@ -1,32 +1,9 @@
 import { useState } from 'react'
+import { createInitialMission } from './game/initialState'
+import { applyPlayerDecision, resetMission } from './game/simulation'
+import type { PlayerAction } from './game/types'
 
 type Screen = 'intro' | 'briefing' | 'dashboard' | 'decisions' | 'log' | 'debrief'
-type ResourceName = 'power' | 'lifeSupport' | 'food' | 'radiation'
-
-type Resources = Record<ResourceName, number>
-
-type LogEntry = {
-  id: number
-  title: string
-  detail: string
-  time: string
-}
-
-const initialResources: Resources = {
-  power: 72,
-  lifeSupport: 80,
-  food: 65,
-  radiation: 35,
-}
-
-const initialLog: LogEntry[] = [
-  {
-    id: 0,
-    title: 'Mission started',
-    detail: 'Sol 214 begins. These are fictional simulation values, not live NASA readings.',
-    time: 'Sol 214 · 06:00',
-  },
-]
 
 const screens: { id: Screen; label: string }[] = [
   { id: 'intro', label: 'Mission intro' },
@@ -37,67 +14,25 @@ const screens: { id: Screen; label: string }[] = [
   { id: 'debrief', label: 'Debrief' },
 ]
 
-function clamp(value: number) {
-  return Math.max(0, Math.min(100, value))
-}
-
 function App() {
   const [screen, setScreen] = useState<Screen>('intro')
-  const [resources, setResources] = useState<Resources>(initialResources)
-  const [turn, setTurn] = useState(0)
-  const [messageQueued, setMessageQueued] = useState(false)
-  const [log, setLog] = useState<LogEntry[]>(initialLog)
-
-  const currentTime = `Sol 214 · ${String(6 + turn * 2).padStart(2, '0')}:00`
-  const addLog = (title: string, detail: string) => {
-    setLog((entries) => [{ id: Date.now(), title, detail, time: currentTime }, ...entries])
-  }
-
-  const applyDecision = (title: string, detail: string, changes: Partial<Resources>) => {
-    setResources((current) => {
-      const next = { ...current }
-      for (const [key, amount] of Object.entries(changes)) {
-        const resource = key as ResourceName
-        next[resource] = clamp(next[resource] + (amount ?? 0))
-      }
-      return next
-    })
-    addLog(title, detail)
-  }
-
-  const advanceTime = () => {
-    const nextTurn = turn + 1
-    setTurn(nextTurn)
-    setResources((current) => ({
-      power: clamp(current.power - 6),
-      lifeSupport: clamp(current.lifeSupport - 4),
-      food: clamp(current.food - 2),
-      radiation: clamp(current.radiation + 3),
-    }))
-    addLog('Time advanced', 'A simplified 2-Martian-hour gameplay turn passed. Outpost systems used supplies.')
-    if (messageQueued) {
-      setMessageQueued(false)
-      addLog('Earth reply arrived', 'Mission Control confirms: keep the crew ready to make safe local choices while messages travel.')
-    }
-  }
-
-  const requestEarth = () => {
-    if (messageQueued) return
-    setMessageQueued(true)
-    addLog('Message sent to Earth', 'A fictional advice request is travelling. The scenario delay is 18 minutes one way.')
-  }
-
-  const resetMission = () => {
-    setResources(initialResources)
-    setTurn(0)
-    setMessageQueued(false)
-    setLog(initialLog)
+  const [mission, setMission] = useState(createInitialMission)
+  const dispatch = (action: PlayerAction) => setMission((current) => applyPlayerDecision(current, action))
+  const advanceTime = () => dispatch({ id: `advance-${mission.time.elapsedHours + 2}`, type: 'advanceTime', hours: 2 })
+  const requestEarth = () => dispatch({ id: `earth-${mission.communications.nextMessageNumber}`, type: 'sendMessage', text: 'Requesting safe next-step advice.' })
+  const replayMission = () => {
+    setMission(resetMission())
     setScreen('intro')
   }
-
-  const status = resources.radiation > 65 || resources.lifeSupport < 35 || resources.power < 25
-    ? 'Needs attention'
-    : 'Stable for now'
+  const currentTime = `Sol ${mission.time.sol} · ${String(Math.floor(mission.time.solHours)).padStart(2, '0')}:${String(Math.round((mission.time.solHours % 1) * 60)).padStart(2, '0')}`
+  const messageQueued = mission.communications.pendingIncoming.length > 0
+  const status = mission.mission.status === 'failed'
+    ? 'Mission needs a restart'
+    : mission.mission.status === 'success'
+      ? 'Mission objectives complete'
+      : mission.radiation.hazardIndex > 65 || mission.lifeSupport.systemHealthIndex < 45 || mission.power.storedEnergyKwh < 10
+        ? 'Needs attention'
+        : 'Stable for now'
 
   return (
     <div className="app-shell">
@@ -165,19 +100,19 @@ function App() {
               <div>
                 <p className="eyebrow">Command dashboard</p>
                 <h1>{status}</h1>
-                <p>{currentTime} · Turn {turn} of this simplified mission</p>
+                <p>{currentTime} · {mission.time.elapsedHours} elapsed simulation hours</p>
               </div>
               <button className="secondary-button" onClick={advanceTime}>Advance 2 Martian hours</button>
             </div>
             <div className="resource-grid">
-              <ResourceCard name="Power" value={resources.power} description="Battery and solar energy available" tone="gold" />
-              <ResourceCard name="Life Support" value={resources.lifeSupport} description="Oxygen, water recovery, and cabin air" tone="blue" />
-              <ResourceCard name="Food" value={resources.food} description="Stored meals and growing crops" tone="green" />
-              <ResourceCard name="Radiation Risk" value={resources.radiation} description="A simulation risk index — not dose data" tone="red" inverse />
+              <ResourceCard name="Power" value={`${Math.round(mission.power.storedEnergyKwh)} kWh`} meterValue={(mission.power.storedEnergyKwh / mission.power.batteryCapacityKwh) * 100} description={`${(mission.power.solarGenerationKw * mission.power.dustStormMultiplier).toFixed(1)} kW solar generation in this fictional model`} tone="gold" />
+              <ResourceCard name="Life Support" value={`${Math.round(mission.lifeSupport.systemHealthIndex)}%`} meterValue={mission.lifeSupport.systemHealthIndex} description={`${Math.round(mission.lifeSupport.waterGameUnits)} water game units · recovery ${Math.round(mission.lifeSupport.waterRecoveryCondition)}%`} tone="blue" />
+              <ResourceCard name="Food" value={`${mission.food.storedFoodCrewDays.toFixed(1)} crew-days`} meterValue={Math.min(100, mission.food.storedFoodCrewDays * 4)} description={`Crop progress ${Math.round(mission.food.cropGrowthProgress)}% · lighting ${mission.food.greenhouseLightingEnabled ? 'on' : 'off'}`} tone="green" />
+              <ResourceCard name="Radiation Risk" value={`${Math.round(mission.radiation.hazardIndex)} / 100`} meterValue={mission.radiation.hazardIndex} description="A simulation hazard index — not dose data" tone="red" />
               <article className="resource-card communications-card">
                 <p className="card-label">Communications</p>
-                <h2>{messageQueued ? 'Message travelling' : '18 min one way'}</h2>
-                <p>Earth–Mars light-time delay in this fictional scenario.</p>
+                <h2>{messageQueued ? 'Reply travelling' : `${mission.communications.oneWayDelayMinutes} min one way`}</h2>
+                <p>Fictional Earth–Mars light-time delay. Autonomous crew choices remain available.</p>
                 <button className="text-button" onClick={requestEarth} disabled={messageQueued}>
                   {messageQueued ? 'Awaiting reply' : 'Ask Earth for advice'}
                 </button>
@@ -194,9 +129,11 @@ function App() {
           <section>
             <div className="section-heading"><div><p className="eyebrow">Decision panel</p><h1>Pick one helpful trade-off</h1><p>No choice is free. Watch the dashboard after each choice.</p></div></div>
             <div className="decision-grid">
-              <DecisionCard title="Save power" text="Pause non-essential plant lights to protect the battery." effect="Power +10 · Food −5" onChoose={() => applyDecision('Power saved', 'Non-essential plant lights were paused. The battery recovered, but crop growth slowed.', { power: 10, food: -5 })} />
-              <DecisionCard title="Run water recovery" text="Use power to clean and recycle more water for the crew." effect="Life Support +12 · Power −10" onChoose={() => applyDecision('Water recovery started', 'Water recovery improved life support and used electrical power.', { lifeSupport: 12, power: -10 })} />
-              <DecisionCard title="Use the shielded room" text="Move the crew into extra shielding during the alert." effect="Radiation Risk −14 · Food −3" onChoose={() => applyDecision('Crew sheltered', 'The crew used the shielded room. Radiation risk fell, but food supplies were used sooner.', { radiation: -14, food: -3 })} />
+              <DecisionCard title="Save power" text="Reduce noncritical loads. Life support stays prioritized, but greenhouse lighting pauses." effect="Battery drain slows · crop growth pauses" onChoose={() => dispatch({ id: `loads-${mission.time.elapsedHours}`, type: 'reduceNonCriticalLoads' })} />
+              <DecisionCard title="Repair water recovery" text="Send crew to repair the malfunction. It takes four simulation hours, electricity, and effort." effect="Water recovery improves later · workload rises" onChoose={() => dispatch({ id: `repair-${mission.time.elapsedHours}`, type: 'startWaterRecoveryRepair' })} />
+              <DecisionCard title={mission.radiation.sheltered ? 'Leave shielded room' : 'Use shielded room'} text="Choose shelter during the space-weather warning. Shelter slows the simulation risk increase." effect="Lower risk growth · less crew freedom" onChoose={() => dispatch({ id: `shelter-${mission.time.elapsedHours}-${!mission.radiation.sheltered}`, type: 'toggleShelter', sheltered: !mission.radiation.sheltered })} />
+              <DecisionCard title={mission.food.greenhouseLightingEnabled ? 'Pause greenhouse lights' : 'Restore greenhouse lights'} text="Crops only grow over simulated time with lighting, water, nutrients, and available power." effect="Save power now or protect future food" onChoose={() => dispatch({ id: `greenhouse-${mission.time.elapsedHours}-${!mission.food.greenhouseLightingEnabled}`, type: 'toggleGreenhouseLighting', enabled: !mission.food.greenhouseLightingEnabled })} />
+              <DecisionCard title="Use stored water" text="Use reserve water instead of waiting for the repair. This can only happen once." effect="Reserves −8 game units · life support steadies" onChoose={() => dispatch({ id: `stored-water-${mission.time.elapsedHours}`, type: 'useStoredWater' })} />
             </div>
             <div className="action-row"><button className="secondary-button" onClick={advanceTime}>Advance 2 Martian hours</button><button className="primary-button" onClick={() => setScreen('dashboard')}>Check dashboard</button></div>
           </section>
@@ -208,7 +145,7 @@ function App() {
               <p className="eyebrow">Consequence log</p>
               <h1>What changed, and why?</h1>
               <div className="log-list" aria-live="polite">
-                {log.map((entry) => <div className="log-entry" key={entry.id}><span>{entry.time}</span><h2>{entry.title}</h2><p>{entry.detail}</p></div>)}
+                {mission.mission.eventHistory.map((entry) => <div className="log-entry" key={entry.id}><span>T+{entry.atHours.toFixed(1)} simulation hours</span><h2>{entry.title}</h2><p>{entry.detail}</p></div>)}
               </div>
             </article>
             <aside className="panel"><p className="eyebrow">Cause and effect</p><h2>Systems are connected</h2><p>Power can help water recovery. Water recovery helps life support. Time changes every system.</p><button className="primary-button" onClick={() => setScreen('debrief')}>See mission debrief</button></aside>
@@ -219,9 +156,9 @@ function App() {
           <section className="hero panel">
             <p className="eyebrow">Mission debrief</p>
             <h1>Every choice teaches a systems lesson.</h1>
-            <p className="lead">Your outpost is currently <strong>{status.toLowerCase()}</strong>. You made {Math.max(0, log.length - 1)} logged choice{log.length === 2 ? '' : 's'} over {turn} simplified time step{turn === 1 ? '' : 's'}.</p>
+            <p className="lead">Your outpost is currently <strong>{status.toLowerCase()}</strong>. You made {mission.mission.processedActionIds.length} decision{mission.mission.processedActionIds.length === 1 ? '' : 's'} over {mission.time.elapsedHours} simplified simulation hours.</p>
             <div className="fact-row"><div><strong>Power</strong><span>Energy choices can affect water and food.</span></div><div><strong>Radiation</strong><span>Shielding lowers a game risk index; it is not a dose reading.</span></div><div><strong>Autonomy</strong><span>Crews may need safe choices before an Earth reply arrives.</span></div></div>
-            <div className="action-row"><button className="primary-button" onClick={resetMission}>Replay mission</button><button className="secondary-button" onClick={() => setScreen('dashboard')}>Return to dashboard</button></div>
+            <div className="action-row"><button className="primary-button" onClick={replayMission}>Replay mission</button><button className="secondary-button" onClick={() => setScreen('dashboard')}>Return to dashboard</button></div>
           </section>
         )}
       </main>
@@ -231,9 +168,9 @@ function App() {
   )
 }
 
-function ResourceCard({ name, value, description, tone, inverse = false }: { name: string; value: number; description: string; tone: string; inverse?: boolean }) {
-  const label = inverse ? `${value} / 100` : `${value}%`
-  return <article className={`resource-card ${tone}`}><p className="card-label">{name}</p><h2>{label}</h2><div className="meter" aria-label={`${name}: ${label}`}><span style={{ width: `${value}%` }} /></div><p>{description}</p></article>
+function ResourceCard({ name, value, meterValue, description, tone }: { name: string; value: string; meterValue: number; description: string; tone: string }) {
+  const boundedMeter = Math.max(0, Math.min(100, meterValue))
+  return <article className={`resource-card ${tone}`}><p className="card-label">{name}</p><h2>{value}</h2><div className="meter" aria-label={`${name}: ${value}`}><span style={{ width: `${boundedMeter}%` }} /></div><p>{description}</p></article>
 }
 
 function DecisionCard({ title, text, effect, onChoose }: { title: string; text: string; effect: string; onChoose: () => void }) {
