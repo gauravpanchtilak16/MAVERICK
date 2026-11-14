@@ -1,6 +1,6 @@
-# RED HORIZON — Junior Astronaut Mission Trainer
+**Live application:** [Open RED HORIZON](https://red-horizon-sandy.vercel.app/)
 
-**Live application:** **TODO — add the verified deployed URL here before the 15 November 2026, 2:00 PM IST code freeze.** A hosted URL has not been verified in this repository.
+# RED HORIZON — Junior Astronaut Mission Trainer
 
 **NASA Space Apps Challenge 2026:** [Build a Junior Astronaut Mission Trainer](https://www.spaceappschallenge.org/2026/challenges/junior-astronaut-mission-trainer/)
 
@@ -60,7 +60,7 @@ The NASA observations do **not** supply the radiation-risk index or a fictional 
 | Simulation | Deterministic TypeScript state transitions in `src/game/simulation.ts` |
 | NASA data | Static, attributed snapshots and validation in `src/data/nasaSnapshots.ts` |
 | Tests | Vitest 2; headless Chromium used for a local browser check |
-| Hosting | **TODO — verify and add the actual deployed host and URL** |
+| Hosting | Vercel project `red-horizon` under `red-horizon2`, connected to `gauravpanchtilak16/RED-HORIZON` |
 
 ### NASA data and scientific limits
 
@@ -78,9 +78,11 @@ The dates and fields below are the original provenance stored in the repository'
 
 ## 4. Live Demo & Screenshots
 
-- **Live application:** **TODO — insert a verified deployed URL.** No deployment is established by the files in this repository.
+- **Live application:** [https://red-horizon-sandy.vercel.app/](https://red-horizon-sandy.vercel.app/)
 - **Demo video:** Not available / not verified.
 - **Local demo:** follow the installation steps below and open the URL Vite prints.
+
+The public deployment was verified in a fresh headless Chromium session on 15 November 2026 IST. The deployed JavaScript, CSS, and favicon matched the tested production build of recovery commit `98f06a3`. Checks covered oxygen production, the three incident decisions, consequences, mission success/failure, replay, keyboard focus, and all six screens at 390 px. Dashboard layout was also checked at 768, 1024, and 1280 px. There were no browser errors in that run. Offline testing covered gameplay after the app had loaded; first-time loading while disconnected is not supported by a service worker. These checks do not establish formal accessibility certification or student user-testing results.
 
 These are actual captures of the locally built application in headless Chromium; they are not generated illustrations. The dashboard capture shows oxygen production after a time advance. The debrief image shows one successful playthrough.
 
