@@ -51,6 +51,7 @@ export interface FoodState {
   greenhouseLightingEnabled: boolean
   cropPowerKw: number
   greenhouseWaterUnitsPerHour: number
+  waterConservationMode: boolean
   nutrientConditionIndex: number
 }
 
@@ -58,7 +59,15 @@ export interface RadiationState {
   hazardIndex: number
   cumulativeExposureIndex: number
   sheltered: boolean
+  shieldingSupplies: number
+  shieldingAllocated: boolean
   spaceWeatherWarning: boolean
+  scenarioReference: {
+    sourceName: string
+    recordIdentifier: string | null
+    use: string
+    limitation: string
+  }
 }
 
 export interface MissionMessage {
@@ -104,7 +113,9 @@ export type PlayerAction =
   | { id: string; type: 'advanceTime'; hours: number }
   | { id: string; type: 'reduceNonCriticalLoads' }
   | { id: string; type: 'toggleGreenhouseLighting'; enabled: boolean }
+  | { id: string; type: 'toggleGreenhouseWaterConservation'; enabled: boolean }
   | { id: string; type: 'startWaterRecoveryRepair' }
   | { id: string; type: 'useStoredWater' }
   | { id: string; type: 'toggleShelter'; sheltered: boolean }
+  | { id: string; type: 'allocateShielding' }
   | { id: string; type: 'sendMessage'; text: string }

@@ -38,7 +38,8 @@ export function getPowerConsumptionKw(power: PowerState, repairingWaterRecovery:
 
 export function updatePower(state: MissionState, elapsedHours: number) {
   const generationKw = state.power.solarGenerationKw * state.power.dustStormMultiplier
-  const consumptionKw = getPowerConsumptionKw(state.power, state.lifeSupport.repairHoursRemaining > 0)
+  const repairingWaterRecovery = state.lifeSupport.repairHoursRemaining > 0 && !state.radiation.sheltered
+  const consumptionKw = getPowerConsumptionKw(state.power, repairingWaterRecovery)
   // kWh changes by net kW multiplied by elapsed hours; storage is always physically bounded.
   const storedEnergyKwh = clamp(
     state.power.storedEnergyKwh + (generationKw - consumptionKw) * elapsedHours,
@@ -51,9 +52,16 @@ export function updatePower(state: MissionState, elapsedHours: number) {
 
 export function updateLifeSupport(state: MissionState, elapsedHours: number, criticalShortfall: boolean) {
   const { crew, lifeSupport, food, power } = state
-  const waterRecovery = crew.count * 0.14 * (lifeSupport.waterRecoveryCondition / 100) * elapsedHours
+  const solarGenerationKw = power.solarGenerationKw * power.dustStormMultiplier
+  const waterRecoveryPowered = power.storedEnergyKwh > 0
+    || solarGenerationKw >= power.loads.lifeSupportKw + power.loads.waterRecoveryKw
+  const waterRecovery = waterRecoveryPowered
+    ? crew.count * 0.14 * (lifeSupport.waterRecoveryCondition / 100) * elapsedHours
+    : 0
   // Paused greenhouse lighting also pauses active crop growth and its water draw.
-  const greenhouseWaterUse = food.greenhouseLightingEnabled ? food.greenhouseWaterUnitsPerHour : 0
+  const greenhouseWaterUse = food.greenhouseLightingEnabled
+    ? food.greenhouseWaterUnitsPerHour * (food.waterConservationMode ? 0.5 : 1)
+    : 0
   const waterUsed = (crew.count * GAME_BALANCE.waterUsePerCrewHour + greenhouseWaterUse) * elapsedHours
   const oxygenUsed = crew.count * GAME_BALANCE.oxygenUsePerCrewHour * elapsedHours
   // A sheltered crew stays safe, but cannot perform the externalized repair work.
@@ -82,7 +90,8 @@ export function updateFood(state: MissionState, elapsedHours: number) {
     && state.power.storedEnergyKwh > 0
     && state.lifeSupport.waterGameUnits > 0
     && state.food.nutrientConditionIndex > 20
-  const progress = state.food.cropGrowthProgress + (grows ? GAME_BALANCE.cropGrowthPerHour * elapsedHours : 0)
+  const growthRate = state.food.waterConservationMode ? GAME_BALANCE.cropGrowthPerHour * 0.55 : GAME_BALANCE.cropGrowthPerHour
+  const progress = state.food.cropGrowthProgress + (grows ? growthRate * elapsedHours : 0)
   const harvests = Math.floor(progress / 100)
   return {
     ...state.food,
@@ -96,14 +105,16 @@ export function updateFood(state: MissionState, elapsedHours: number) {
 export function updateRadiation(state: MissionState, elapsedHours: number) {
   const warningIncrease = state.radiation.spaceWeatherWarning ? 2.4 * elapsedHours : 0.5 * elapsedHours
   const shelterFactor = state.radiation.sheltered ? 0.3 : 1
-  const hazardIndex = clamp(state.radiation.hazardIndex + warningIncrease * shelterFactor)
+  const shieldingFactor = state.radiation.shieldingAllocated ? 0.75 : 1
+  const protectionFactor = shelterFactor * shieldingFactor
+  const hazardIndex = clamp(state.radiation.hazardIndex + warningIncrease * protectionFactor)
   // These are intentionally unitless game indices, never physical radiation measurements.
-  const cumulativeExposureIndex = clamp(state.radiation.cumulativeExposureIndex + hazardIndex * elapsedHours * 0.08 * shelterFactor, 0, 999)
+  const cumulativeExposureIndex = clamp(state.radiation.cumulativeExposureIndex + hazardIndex * elapsedHours * 0.08 * protectionFactor, 0, 999)
   return { ...state.radiation, hazardIndex, cumulativeExposureIndex }
 }
 
 export function updateCrew(state: MissionState, elapsedHours: number) {
-  const repairWork = state.lifeSupport.repairHoursRemaining > 0 ? 1.4 : 0.7
+  const repairWork = state.lifeSupport.repairHoursRemaining > 0 && !state.radiation.sheltered ? 1.4 : 0.7
   const fatigueIndex = clamp(state.crew.fatigueIndex + elapsedHours * repairWork - state.crew.restHours * 0.1)
   const conditionPenalty = (100 - state.lifeSupport.systemHealthIndex) * 0.03 + state.radiation.hazardIndex * 0.015
   return {
@@ -127,14 +138,18 @@ export function processCommunications(state: MissionState): CommunicationsState 
 }
 
 export function checkMissionStatus(state: MissionState): MissionState {
+  const missionDurationReached = state.time.elapsedHours >= MARTIAN_SOL_HOURS
+  const basicObjectivesMet = state.lifeSupport.systemHealthIndex >= 45
+    && state.crew.conditionIndex >= 45
+    && state.food.storedFoodCrewDays > 0
   const failed = state.lifeSupport.oxygenGameUnits <= 0
     || state.lifeSupport.waterGameUnits <= 0
     || state.crew.conditionIndex <= 0
     || (state.power.storedEnergyKwh <= 0 && state.power.solarGenerationKw * state.power.dustStormMultiplier < state.power.loads.lifeSupportKw)
-  const objectivesMet = state.time.elapsedHours >= MARTIAN_SOL_HOURS
-    && state.lifeSupport.systemHealthIndex >= 45
-    && state.crew.conditionIndex >= 45
-    && state.food.storedFoodCrewDays > 0
+    // A sol is the mission deadline. If the crew reaches it without meeting
+    // the minimum survival objectives, the mission ends in a retry state.
+    || (missionDurationReached && !basicObjectivesMet)
+  const objectivesMet = missionDurationReached && basicObjectivesMet
   const status = failed ? 'failed' : objectivesMet ? 'success' : 'active'
   return status === state.mission.status ? state : { ...state, mission: { ...state.mission, status } }
 }
@@ -159,8 +174,13 @@ export function advanceSimulation(state: MissionState, elapsedHours: number): Mi
       solHours: totalSolHours % MARTIAN_SOL_HOURS,
     },
   }
-  next = { ...next, communications: processCommunications(next) }
+  const communications = processCommunications(next)
+  const deliveredReplies = communications.deliveredMessages.slice(state.communications.deliveredMessages.length)
+  next = { ...next, communications }
   next = addEvent(next, 'Simulation time advanced', `${elapsedHours} simplified simulation hour${elapsedHours === 1 ? '' : 's'} passed. Power, life support, food, crew, radiation, and messages were updated.`)
+  for (const reply of deliveredReplies) {
+    next = addEvent(next, 'Earth reply arrived', `Delayed message received: “${reply.text}” The crew still had to make safe choices before it arrived.`)
+  }
   if (lifeSupport.repairHoursRemaining === 0 && state.lifeSupport.repairHoursRemaining > 0) {
     next = addEvent(next, 'Water recovery repaired', 'Crew effort and electricity restored water-recovery condition in this game model.')
   }
@@ -183,6 +203,9 @@ export function applyPlayerDecision(state: MissionState, action: PlayerAction): 
     case 'toggleGreenhouseLighting':
       next = { ...next, power: { ...next.power, greenhouseLightingEnabled: action.enabled }, food: { ...next.food, greenhouseLightingEnabled: action.enabled } }
       return addEvent(next, action.enabled ? 'Greenhouse lighting restored' : 'Greenhouse lighting paused', action.enabled ? 'Crop growth can resume when power is available.' : 'Crop growth pauses; stored food must cover the delay.')
+    case 'toggleGreenhouseWaterConservation':
+      next = { ...next, food: { ...next.food, waterConservationMode: action.enabled } }
+      return addEvent(next, action.enabled ? 'Greenhouse water-saving mode enabled' : 'Greenhouse water-saving mode disabled', action.enabled ? 'Crop water use is reduced, but crop growth slows. This protects reserves while the recovery system is weak.' : 'Crop water use and growth return to their normal game-balance settings.')
     case 'startWaterRecoveryRepair':
       if (next.lifeSupport.repairHoursRemaining > 0 || next.lifeSupport.waterRecoveryCondition >= 85) return state
       next = { ...next, lifeSupport: { ...next.lifeSupport, repairHoursRemaining: GAME_BALANCE.repairDurationHours } }
@@ -194,6 +217,10 @@ export function applyPlayerDecision(state: MissionState, action: PlayerAction): 
     case 'toggleShelter':
       next = { ...next, radiation: { ...next.radiation, sheltered: action.sheltered } }
       return addEvent(next, action.sheltered ? 'Crew entered the shielded room' : 'Crew left the shielded room', action.sheltered ? 'The simulation radiation-risk and exposure indices will rise more slowly, but water-recovery repairs pause.' : 'The crew can resume repairs, but the simulation radiation-risk index rises faster.')
+    case 'allocateShielding':
+      if (next.radiation.shieldingAllocated || next.radiation.shieldingSupplies <= 0) return state
+      next = { ...next, radiation: { ...next.radiation, shieldingSupplies: next.radiation.shieldingSupplies - 1, shieldingAllocated: true } }
+      return addEvent(next, 'Emergency shielding allocated', 'One shielding supply was committed to the crew area. It slows the simulated hazard increase but cannot erase the space-weather warning.')
     case 'sendMessage': {
       const delayHours = next.communications.oneWayDelayMinutes / 60
       const number = next.communications.nextMessageNumber

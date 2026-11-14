@@ -1,4 +1,5 @@
 import type { MissionState } from './types'
+import { DONKI_SEP_SNAPSHOT } from '../data/nasaSnapshots'
 
 export function createInitialMission(): MissionState {
   return {
@@ -29,19 +30,33 @@ export function createInitialMission(): MissionState {
       greenhouseLightingEnabled: true,
       cropPowerKw: 1.2,
       greenhouseWaterUnitsPerHour: 0.16,
+      waterConservationMode: false,
       nutrientConditionIndex: 100,
     },
-    radiation: { hazardIndex: 52, cumulativeExposureIndex: 12, sheltered: false, spaceWeatherWarning: true },
+    radiation: {
+      hazardIndex: 52,
+      cumulativeExposureIndex: 12,
+      sheltered: false,
+      shieldingSupplies: 1,
+      shieldingAllocated: false,
+      spaceWeatherWarning: true,
+      scenarioReference: {
+        sourceName: DONKI_SEP_SNAPSHOT.sourceName,
+        recordIdentifier: DONKI_SEP_SNAPSHOT.recordIdentifier,
+        use: DONKI_SEP_SNAPSHOT.gameUse,
+        limitation: DONKI_SEP_SNAPSHOT.limitations,
+      },
+    },
     communications: { oneWayDelayMinutes: 18, pendingOutgoing: [], pendingIncoming: [], deliveredMessages: [], nextMessageNumber: 1 },
     mission: {
       status: 'active',
       activeEmergencies: ['dustStorm', 'waterRecoveryFailure', 'radiationAlert'],
-      objectives: ['Keep the crew safe through the dust storm.', 'Repair water recovery or carefully use stored water.', 'Manage the radiation warning while Earth messages are delayed.'],
+      objectives: ['Keep the four-person crew safe for one Martian sol.', 'Protect power, water recovery, food, and cabin air through the dust storm.', 'Manage the radiation warning while Earth messages are delayed.'],
       processedActionIds: [],
       eventHistory: [
         { id: 'event-1', atHours: 0, title: 'Sol 214 mission started', detail: 'This fictional mission uses educational game units and simulation indices, not live NASA measurements.' },
         { id: 'event-2', atHours: 0, title: 'Dust storm and water-recovery fault', detail: 'Solar generation is reduced and the water-recovery system needs attention.' },
-        { id: 'event-3', atHours: 0, title: 'Space-weather warning', detail: 'Radiation hazard is a simulation index. It is not a radiation-dose measurement.' },
+        { id: 'event-3', atHours: 0, title: 'Space-weather warning', detail: `Historical NASA DONKI SEP record ${DONKI_SEP_SNAPSHOT.recordIdentifier} informs this educational scenario. Radiation hazard remains a simulation index, not a radiation-dose measurement.` },
       ],
     },
   }

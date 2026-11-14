@@ -71,6 +71,28 @@ describe('RED HORIZON deterministic simulation engine', () => {
     expect(completed.crew.workloadIndex).toBeGreaterThan(initial.crew.workloadIndex)
   })
 
+  it('pauses repair power and crew effort while the crew shelters', () => {
+    const repairing = applyPlayerDecision(createInitialMission(), { id: 'repair', type: 'startWaterRecoveryRepair' })
+    const working = advanceSimulation(repairing, 2)
+    const sheltered = applyPlayerDecision(repairing, { id: 'shelter', type: 'toggleShelter', sheltered: true })
+    const paused = advanceSimulation(sheltered, 2)
+
+    expect(paused.lifeSupport.repairHoursRemaining).toBe(4)
+    expect(paused.power.storedEnergyKwh).toBeGreaterThan(working.power.storedEnergyKwh)
+    expect(paused.crew.workloadIndex).toBeLessThan(working.crew.workloadIndex)
+  })
+
+  it('stops water recovery when depleted power cannot support it', () => {
+    const noPower = createInitialMission()
+    noPower.power.storedEnergyKwh = 0
+    noPower.power.solarGenerationKw = 0
+    noPower.lifeSupport.waterGameUnits = 80
+
+    const advanced = advanceSimulation(noPower, 2)
+    const expectedWaterAfterUse = 80 - (noPower.crew.count * 0.18 + noPower.food.greenhouseWaterUnitsPerHour) * 2
+    expect(advanced.lifeSupport.waterGameUnits).toBeCloseTo(expectedWaterAfterUse)
+  })
+
   it('reduces the simulation radiation-risk increase when the crew shelters', () => {
     const initial = createInitialMission()
     const outside = advanceSimulation(initial, 4)
@@ -80,6 +102,20 @@ describe('RED HORIZON deterministic simulation engine', () => {
     expect(protectedState.radiation.cumulativeExposureIndex).toBeLessThan(outside.radiation.cumulativeExposureIndex)
   })
 
+  it('makes shielding and greenhouse water conservation create real trade-offs', () => {
+    const initial = createInitialMission()
+    const shielded = applyPlayerDecision(initial, { id: 'allocate-shielding', type: 'allocateShielding' })
+    const protectedState = advanceSimulation(shielded, 4)
+    const outside = advanceSimulation(initial, 4)
+    expect(shielded.radiation.shieldingSupplies).toBe(0)
+    expect(protectedState.radiation.hazardIndex).toBeLessThan(outside.radiation.hazardIndex)
+
+    const conserving = applyPlayerDecision(initial, { id: 'save-greenhouse-water', type: 'toggleGreenhouseWaterConservation', enabled: true })
+    const afterConservation = advanceSimulation(conserving, 4)
+    expect(afterConservation.food.cropGrowthProgress).toBeLessThan(outside.food.cropGrowthProgress)
+    expect(afterConservation.lifeSupport.waterGameUnits).toBeGreaterThan(outside.lifeSupport.waterGameUnits)
+  })
+
   it('delays Earth messages until both one-way light-time intervals pass', () => {
     const initial = createInitialMission()
     const sent = applyPlayerDecision(initial, { id: 'ask-earth', type: 'sendMessage', text: 'What should we do?' })
@@ -87,6 +123,7 @@ describe('RED HORIZON deterministic simulation engine', () => {
     expect(beforeReply.communications.deliveredMessages).toHaveLength(0)
     const afterReply = advanceSimulation(sent, 0.7)
     expect(afterReply.communications.deliveredMessages).toHaveLength(1)
+    expect(afterReply.mission.eventHistory.some((event) => event.title === 'Earth reply arrived')).toBe(true)
   })
 
   it('checks mission success and failure conditions', () => {
@@ -99,6 +136,11 @@ describe('RED HORIZON deterministic simulation engine', () => {
     const failed = createInitialMission()
     failed.lifeSupport.oxygenGameUnits = 0
     expect(checkMissionStatus(failed).mission.status).toBe('failed')
+
+    const missedDeadline = createInitialMission()
+    missedDeadline.time.elapsedHours = MARTIAN_SOL_HOURS
+    missedDeadline.crew.conditionIndex = 40
+    expect(checkMissionStatus(missedDeadline).mission.status).toBe('failed')
   })
 
   it('resets and replays an identical starting mission', () => {

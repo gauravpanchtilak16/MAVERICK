@@ -133,3 +133,39 @@ Use this structure beside every data snapshot:
 ```
 
 Do not leave `REPLACE_...` placeholders in the final public demo while implying the data is live.
+
+## 8. RED HORIZON Stage 3 cached records
+
+### NASA DONKI SEP observation
+
+- **Classification:** NASA observation; historical cached snapshot, not live data.
+- **Source name / URL:** NASA DONKI, `https://api.nasa.gov/DONKI/SEP`.
+- **Query used:** `startDate=2024-05-10`, `endDate=2024-05-10`, public `DEMO_KEY` during development only; no API key is present in the web app.
+- **Retrieved at UTC:** `2026-11-14T15:56:37Z`.
+- **Record identifier:** `2024-05-10T13:35:00-SEP-001`.
+- **Observation date:** `2024-05-10T13:35Z`.
+- **Original fields retained:** `sepID`, `eventTime`, `instruments.displayName`, linked activity IDs, alert IDs and record link.
+- **Instrument/channel reported:** `GOES-P: SEISS >10 MeV`.
+- **Game use:** informs the pre-authored fictional space-weather warning and shelter decision.
+- **Limit:** it is not a Mars habitat radiation-dose measurement and is never converted to ÂµSv, mGy, crew exposure, or the simulation risk index.
+
+### NASA OSDR RadLab Mars-surface observation
+
+- **Classification:** NASA observation; historical cached snapshot, not live data.
+- **Source name / URL:** NASA OSDR RadLab, `https://visualization.osdr.nasa.gov/radlab/api/?trajectory=Mars%20surface&timestamp%3E=2019-10-18T00%3A00&timestamp%3C2019-10-18T00%3A30&absorbed_dose_rate&dose_equivalent_rate&format=json`.
+- **Retrieved at UTC:** `2026-11-14T15:56:49Z`.
+- **Record identifier:** none returned for this row; instrument ID is `MSL-RAD-Surface`.
+- **Observation timestamp:** `2019-10-18T00:21:47`, preserved exactly as returned.
+- **Trajectory:** `Mars surface`.
+- **Original field / unit:** `absorbed_dose_rate` = `8.905511 ÂµGy/hour`.
+- **Dose-equivalent field:** returned `null`; it is not inferred or substituted.
+- **Quality flags:** no quality-flag field was returned by this RadLab response. The linked MSL RAD Level-2 dataset describes a `FLAGGED_DATA` indicator, but no flag is claimed for this selected record.
+- **Game use:** historical science reference only; it does not drive or calibrate the game radiation hazard/exposure indices.
+- **Limit:** one historical Mars-surface measurement is not a live reading or a dose at the fictional habitat.
+
+### MSL RAD Level-2 dataset reference
+
+- **Classification:** NASA dataset reference, not a displayed measurement.
+- **Source / identifier:** NASA Open Data Portal, `https://data.nasa.gov/dataset/mars-science-laboratory-msl-radiation-assessment-detector-rad-level-2-observation-dosimetr-e2695`, DOI `https://doi.org/10.48322/20qb-4e17`.
+- **Retrieved at UTC:** `2026-11-14T15:56:49Z`.
+- **Use / limit:** documents that Mars-surface Level-2 products include quality-filtered variables and `FLAGGED_DATA`; RED HORIZON does not display an unparsed Level-2 value or quality flag.
