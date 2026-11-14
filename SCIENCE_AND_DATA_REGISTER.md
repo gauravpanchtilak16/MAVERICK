@@ -141,13 +141,13 @@ Do not leave `REPLACE_...` placeholders in the final public demo while implying 
 - **Classification:** NASA observation; historical cached snapshot, not live data.
 - **Source name / URL:** NASA DONKI, `https://api.nasa.gov/DONKI/SEP`.
 - **Query used:** `startDate=2024-05-10`, `endDate=2024-05-10`, public `DEMO_KEY` during development only; no API key is present in the web app.
-- **Retrieved at UTC:** `2026-11-14T15:56:37Z`.
+- **Retrieved at UTC:** `2026-11-14T17:19:35Z`.
 - **Record identifier:** `2024-05-10T13:35:00-SEP-001`.
 - **Observation date:** `2024-05-10T13:35Z`.
 - **Original fields retained:** `sepID`, `eventTime`, `instruments.displayName`, linked activity IDs, alert IDs and record link.
 - **Instrument/channel reported:** `GOES-P: SEISS >10 MeV`.
 - **Game use:** informs the pre-authored fictional space-weather warning and shelter decision.
-- **Limit:** it is not a Mars habitat radiation-dose measurement and is never converted to ÂµSv, mGy, crew exposure, or the simulation risk index.
+- **Limit:** it is not a Mars habitat radiation-dose measurement and is never converted to µSv, mGy, crew exposure, or the simulation risk index.
 
 ### NASA OSDR RadLab Mars-surface observation
 
@@ -157,7 +157,7 @@ Do not leave `REPLACE_...` placeholders in the final public demo while implying 
 - **Record identifier:** none returned for this row; instrument ID is `MSL-RAD-Surface`.
 - **Observation timestamp:** `2019-10-18T00:21:47`, preserved exactly as returned.
 - **Trajectory:** `Mars surface`.
-- **Original field / unit:** `absorbed_dose_rate` = `8.905511 ÂµGy/hour`.
+- **Original field / unit:** `absorbed_dose_rate` = `8.905511 µGy/hour`.
 - **Dose-equivalent field:** returned `null`; it is not inferred or substituted.
 - **Quality flags:** no quality-flag field was returned by this RadLab response. The linked MSL RAD Level-2 dataset describes a `FLAGGED_DATA` indicator, but no flag is claimed for this selected record.
 - **Game use:** historical science reference only; it does not drive or calibrate the game radiation hazard/exposure indices.
