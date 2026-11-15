@@ -142,7 +142,7 @@ function ResourceCard({ icon, name, value, meterValue, description, status, stat
 }
 
 function DecisionCard({ title, text, effect, onChoose, disabled = false }: { title: string; text: string; effect: string; onChoose: () => void; disabled?: boolean }) {
-  return <article className="decision-card"><h2>{title}</h2><p>{text}</p><strong>{effect}</strong><button className="primary-button" onClick={onChoose} disabled={disabled}>Choose this plan</button></article>
+  return <article className="decision-card"><h2>{title}</h2><p>{text}</p><strong>{effect}</strong><button className="primary-button" aria-label={`Choose this plan: ${title}`} onClick={onChoose} disabled={disabled}>Choose this plan</button></article>
 }
 
 export default App

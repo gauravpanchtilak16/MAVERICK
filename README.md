@@ -16,10 +16,10 @@
 
 | Full name | Home institution | GitHub username | Engineering/design role | Actual individual contributions |
 |---|---|---|---|---|
-| Ashwin Pal | G.H. Raisoni College of Engineering, Nagpur | [ash242222-beep](https://github.com/ash242222-beep) | Application integration and test commits, per Git history; **TODO — confirm role** | Commits include `src/App.tsx`, `src/styles.css`, `src/game/`, `src/data/`, and test changes. **TODO — describe actual manual engineering and review.** |
-| Gaurav Panchtilak | G.H. Raisoni College of Engineering, Nagpur | [gauravpanchtilak16](https://github.com/gauravpanchtilak16) | Initial repository setup, per Git history; **TODO — confirm role** | Initial README commit and two empty placeholder files (`index.html`, `style.css`) in the recorded history. **TODO — describe any further work.** |
+| Ashwin Pal | G.H. Raisoni College of Engineering, Nagpur | [ash242222-beep](https://github.com/ash242222-beep) | Application review/testing (team confirmed); application integration commits in Git history | The team confirms Ashwin reviewed and tested the application. His recorded commits include UI, simulation, NASA data, tests, and documentation. Those commits include disclosed AI assistance; they are not evidence that every line was manually written by him. |
+| Gaurav Panchtilak | G.H. Raisoni College of Engineering, Nagpur | [gauravpanchtilak16](https://github.com/gauravpanchtilak16) | Application review/testing (team confirmed); initial repository setup in Git history | The team confirms Gaurav reviewed and tested the application. Git history records the initial README and two empty placeholder files. Further individual implementation work has not been specified and is not claimed here. |
 
-The names, institution, and usernames were supplied by the team. Git history supports the listed commit areas; it does not establish who wrote underlying content, each person's final role, or what they manually reviewed.
+The names, institution, and usernames were supplied by the team. On 15 November 2026, the team confirmed that both members reviewed and tested the application. Individual manual test procedures and separately authored modules were not supplied; automated checks reported below were executed by Codex and are not attributed to the members.
 
 ## 3. Solution Overview & Architecture
 
@@ -54,12 +54,12 @@ The NASA observations do **not** supply the radiation-risk index or a fictional 
 
 | Layer | Implementation |
 |---|---|
-| Frontend | React 18, Vite 5 |
+| Frontend | React 18, Vite 6.4.6 |
 | Language | TypeScript 5 |
 | Styling | Repository CSS (`src/styles.css`) |
 | Simulation | Deterministic TypeScript state transitions in `src/game/simulation.ts` |
 | NASA data | Static, attributed snapshots and validation in `src/data/nasaSnapshots.ts` |
-| Tests | Vitest 2; headless Chromium used for a local browser check |
+| Tests | Vitest 4.1.12; headless Chromium for local and public browser checks |
 | Hosting | Vercel project `red-horizon` under `red-horizon2`, connected to `gauravpanchtilak16/RED-HORIZON` |
 
 ### NASA data and scientific limits
@@ -81,6 +81,7 @@ The dates and fields below are the original provenance stored in the repository'
 - **Live application:** [https://red-horizon-sandy.vercel.app/](https://red-horizon-sandy.vercel.app/)
 - **Demo video:** Not available / not verified.
 - **Local demo:** follow the installation steps below and open the URL Vite prints.
+- **Judging preparation:** [90-second demo path, evidence, technical Q&A, and submission checklist](docs/JUDGING_DEMO.md).
 
 The public deployment was verified in a fresh headless Chromium session on 15 November 2026 IST. The deployed JavaScript, CSS, and favicon matched the tested production build of recovery commit `98f06a3`. Checks covered oxygen production, the three incident decisions, consequences, mission success/failure, replay, keyboard focus, and all six screens at 390 px. Dashboard layout was also checked at 768, 1024, and 1280 px. There were no browser errors in that run. Offline testing covered gameplay after the app had loaded; first-time loading while disconnected is not supported by a service worker. These checks do not establish formal accessibility certification or student user-testing results.
 
@@ -97,7 +98,7 @@ These are actual captures of the locally built application in headless Chromium;
 
 ## 5. Installation & Setup Guide
 
-These steps were checked against the repository's `package.json`. The local verification environment was **Node.js v24.19.0** and **npm 11.17.0** on Windows. Other versions or operating systems were not independently tested for this README.
+Use **Node.js 24.x** for the verified setup. The local verification environment was **Node.js v24.19.0** and **npm 11.17.0** on Windows. Other versions or operating systems were not independently tested for this README. Stage 10 upgraded the build/test tools to Vite 6.4.6 and Vitest 4.1.12 to address dependency advisories; the application remains React 18 and TypeScript 5.
 
 ```bash
 git clone https://github.com/gauravpanchtilak16/RED-HORIZON.git
@@ -106,7 +107,7 @@ npm ci
 npm run dev
 ```
 
-Open the local address printed by Vite (typically `http://localhost:5173/`). The clone URL matches the configured Git remote; public reachability could not be verified from this environment. If the repository is already downloaded, run the npm commands from the folder containing `package.json`. On Windows PowerShell, `npm.cmd` can be used in place of `npm` if script execution policy blocks `npm.ps1`.
+Open the local address printed by Vite (typically `http://localhost:5173/`). The clone URL matches the configured Git remote; GitHub's API confirmed that the repository is public during Stage 10. If the repository is already downloaded, run the npm commands from the folder containing `package.json`. On Windows PowerShell, `npm.cmd` can be used in place of `npm` if script execution policy blocks `npm.ps1`.
 
 For tests and a production bundle:
 
@@ -120,11 +121,12 @@ npm run preview
 
 ## 6. AI Usage Disclosure
 
-**OpenAI Codex in the ChatGPT desktop app was used during RED HORIZON development.** The disclosure below covers assistance visible in this project work. A separate ChatGPT workflow is not evidenced here. **TODO — team to confirm whether separate ChatGPT sessions or any other AI tools were used and add them here before submission.** Do not attribute other tools without evidence.
+The team confirmed on 15 November 2026 that it used **ChatGPT for planning, research, and prompts**, and **OpenAI Codex for development assistance**. No other generative AI tool use was reported. The table records the actual scope known from the team and this development session.
 
 | AI tool | Exact files, sections, or assets assisted | Nature of assistance | Human engineering, review, integration, and testing |
 |---|---|---|---|
-| OpenAI Codex (ChatGPT desktop app) | `src/App.tsx`, `src/styles.css`, `src/game/types.ts`, `src/game/initialState.ts`, `src/game/simulation.ts`, `src/data/nasaSnapshots.ts`, `src/game/__tests__/simulation.test.ts`, `src/data/__tests__/nasaSnapshots.test.ts`, `src/data/__tests__/nasaFallback.test.ts`, this `README.md`, and the six browser captures under `docs/screenshots/`. | Assisted with application scaffold and mission logic, NASA source investigation and provenance labels, UI language and styling, debugging and QA, test code, documentation, and automated browser captures. The screenshots record the rendered app; they are not AI-generated art. | The supplied team members own the project and all Git operations. Codex ran automated tests, builds, and a local headless browser check; those do **not** prove human review. **TODO — Ashwin and Gaurav: record your actual engineering contributions, manual review, integration, and tests, with the files or features each of you handled.** |
+| ChatGPT (OpenAI) | Project planning and research discussions, and task prompts used to guide development. Specific source files generated by this separate ChatGPT use were not reported. | Planning, research, and prompt preparation, as confirmed by the team. | Both members report reviewing and testing the application. Individual prompt edits and manual test procedures were not specified. |
+| OpenAI Codex | `src/App.tsx`, `src/styles.css`, `src/game/types.ts`, `src/game/initialState.ts`, `src/game/simulation.ts`, `src/data/nasaSnapshots.ts`, `src/game/__tests__/simulation.test.ts`, `src/game/__tests__/oxygenGeneration.test.ts`, `src/data/__tests__/nasaSnapshots.test.ts`, `src/data/__tests__/nasaFallback.test.ts`, `package.json`, `package-lock.json`, `SCIENCE_AND_DATA_REGISTER.md`, this `README.md`, `docs/JUDGING_DEMO.md`, `STAGE_10_FINAL_SUBMISSION_REPORT.md`, and browser captures under `docs/screenshots/`. | Generated and revised application scaffold, mission logic, tests, UI copy/styles, source labels, documentation, and the Stage 10 accessibility fix and toolchain remediation; executed research and automated QA. Screenshots record the rendered app. | The team confirms both members reviewed and tested the app; the exact individual manual procedures were not supplied. Codex executed the reported automated tests, builds, type checks, and browser checks. Human review is team-reported and is not independently established by those automated checks. |
 
 **AI-assisted assets:** `public/favicon.svg` is a simple RH monogram written as SVG code with Codex assistance; `index.html` links it. The six PNG images above are browser screenshots of the running application. No AI-generated raster illustration, audio, or video is included. **AI-assisted copy and design:** mission text, scientific labels, CSS/UI decisions, and README wording were assisted by Codex; they require human review before submission.
 
