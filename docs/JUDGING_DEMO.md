@@ -1,9 +1,13 @@
 # RED HORIZON — judging and submission preparation
 
-**Live app:** https://red-horizon-sandy.vercel.app/  
-**Repository:** https://github.com/gauravpanchtilak16/RED-HORIZON  
-**Team:** Maverick — Ashwin Pal and Gaurav Panchtilak  
-**Challenge:** Build a Junior Astronaut Mission Trainer  
+**Live app:** https://red-horizon-sandy.vercel.app/
+
+**Repository:** https://github.com/gauravpanchtilak16/RED-HORIZON
+
+**Team:** Maverick — Ashwin Pal and Gaurav Panchtilak
+
+**Challenge:** Build a Junior Astronaut Mission Trainer
+
 **Freeze:** 15 November 2026, 14:00 IST. No repository edits, commits, merges, or pushes after the freeze.
 
 Student-built hackathon project. Not an official NASA product and not endorsed by NASA.
